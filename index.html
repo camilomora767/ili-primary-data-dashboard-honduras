@@ -57,7 +57,6 @@
   </div>
 </header>
 <div class="content" id="overview">
-<section class="section card panel" style="margin:0 0 16px"><div class="panel-head" style="margin:0;align-items:center"><div><h2>Honduras fieldwork instruments</h2><div class="eyebrow">Collect responses in Qualtrics</div></div><div class="actions"><a class="btn download" style="text-decoration:none" href="https://mit.co1.qualtrics.com/jfe/form/SV_9LXy32LyJuSlvgi" target="_blank" rel="noopener noreferrer">Open observation form ↗</a><a class="btn download" style="text-decoration:none" href="https://mit.co1.qualtrics.com/jfe/form/SV_8e48NZfmjF2fFrM" target="_blank" rel="noopener noreferrer">Open courier survey ↗</a></div></div></section>
 <div id="configBanner" class="banner">Live data is unavailable. Configure <code>QUALTRICS_API_TOKEN</code>, <code>QUALTRICS_DATA_CENTER</code>, <code>QUALTRICS_SURVEY_ID</code>, and <code>QUALTRICS_COURIER_SURVEY_ID</code> and <code>DASHBOARD_ACCESS_CODE</code> in Vercel to connect both Honduras surveys.</div>
 <section class="kpis">
   <div class="card kpi"><div class="label">Completed observations</div><div class="value" id="kpiN">—</div><div class="sub">Finished responses</div></div>
@@ -171,7 +170,15 @@ async function loadDashboard(force=false){
     dashboard=await r.json();
     status.textContent='Live Qualtrics · Honduras';status.className='status';document.getElementById('configBanner').classList.remove('show');
   }catch(e){
-    console.error(e);dashboard=demo;status.textContent=e.status===503?'Setup required':'Data unavailable';status.className='status demo';document.getElementById('configBanner').classList.add('show');document.getElementById('logoutBtn').style.display='none';
+    console.error(e);dashboard=demo;status.textContent=e.status===503?'Setup required':'Data unavailable';status.className='status demo';
+    const banner=document.getElementById('configBanner');
+    const setupHint=e.message==='Dashboard access code is not configured'
+      ? ' Add DASHBOARD_ACCESS_CODE in Vercel for Production, then redeploy.'
+      : e.message==='Qualtrics environment variables are not configured'
+        ? ' Add QUALTRICS_API_TOKEN in Vercel for Production, then redeploy.'
+        : '';
+    banner.textContent=(e.message||'Live data is unavailable.')+setupHint;
+    banner.classList.add('show');document.getElementById('logoutBtn').style.display='none';
   }
   renderAll();
   loadCourierSummary();
@@ -181,7 +188,7 @@ async function loadCourierSummary(){
   const note=document.getElementById('courierNote');
   try{
     const r=await fetch('/api/courier-summary?t='+Date.now(),{cache:'no-store'});
-    if(!r.ok)throw new Error(await r.text());
+    if(!r.ok){const body=await r.json().catch(()=>({}));throw new Error(body.error||'Unable to load courier data')}
     courierSummary=await r.json();
     const s=courierSummary.summary||{};
     document.getElementById('courierN').textContent=s.responses??'—';
@@ -193,7 +200,7 @@ async function loadCourierSummary(){
   }catch(e){
     console.error(e);courierSummary=null;
     document.getElementById('courierN').textContent='—';document.getElementById('courierLinked').textContent='—';document.getElementById('courierLinkRate').textContent='—';
-    note.textContent='Courier survey unavailable. Check QUALTRICS_COURIER_SURVEY_ID and redeploy.';
+    note.textContent='Courier data unavailable: '+String(e.message||'Unable to load data.');
     for(const id of ['courierRawBtn','courierPanelDownload']){const b=document.getElementById(id);if(b)b.disabled=true}
   }
 }
