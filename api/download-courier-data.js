@@ -1,6 +1,5 @@
 import { courierSurveyId } from '../lib/config.js';
 import { exportResponses, isFinished } from '../lib/qualtrics.js';
-import { requireAccess } from '../lib/auth.js';
 
 const ADMIN_ORDER = [
   'StartDate','EndDate','Status','IPAddress','Progress','Duration (in seconds)','Finished','RecordedDate','ResponseId',
@@ -21,7 +20,6 @@ function csvCell(value) {
 
 export default async function handler(req,res) {
   if (req.method!=='GET') return res.status(405).json({error:'Method not allowed'});
-  if (!requireAccess(req,res)) return;
 
   const token=process.env.QUALTRICS_API_TOKEN;
   const dataCenter=process.env.QUALTRICS_DATA_CENTER||'iad1';

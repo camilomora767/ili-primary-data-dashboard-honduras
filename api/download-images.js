@@ -1,7 +1,6 @@
 import { observationSurveyId, photoValue } from '../lib/config.js';
 import archiver from 'archiver';
 import { exportResponses, isFinished, missing, safeFilename } from '../lib/qualtrics.js';
-import { requireAccess } from '../lib/auth.js';
 
 function get(r,...keys){
   for(const k of keys) if(!missing(r[k])) return r[k];
@@ -20,7 +19,6 @@ function manifestCsv(rows) {
 
 export default async function handler(req,res) {
   if(req.method!=='GET') return res.status(405).json({error:'Method not allowed'});
-  if(!requireAccess(req,res)) return;
 
   const token=process.env.QUALTRICS_API_TOKEN;
   const dataCenter=process.env.QUALTRICS_DATA_CENTER||'iad1';

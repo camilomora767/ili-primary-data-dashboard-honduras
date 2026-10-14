@@ -47,7 +47,6 @@
   <div><h1>Honduras — Primary Data Collection Dashboard</h1><p>Field observations of last-mile and informal delivery activity in Honduras</p></div>
   <div class="actions">
     <span id="status" class="status demo">Connecting…</span>
-    <button id="logoutBtn" class="btn" onclick="logoutDashboard()" style="display:none">Sign out</button>
     <span id="downloadMsg" class="download-msg">Preparing ZIP…</span>
     <button id="downloadBtn" class="btn download" onclick="downloadImages()" disabled>Download images</button>
     <button id="rawBtn" class="btn download" onclick="downloadRawData()" disabled>Download raw data</button>
@@ -57,7 +56,7 @@
   </div>
 </header>
 <div class="content" id="overview">
-<div id="configBanner" class="banner">Live data is unavailable. Configure <code>QUALTRICS_API_TOKEN</code>, <code>QUALTRICS_DATA_CENTER</code>, <code>QUALTRICS_SURVEY_ID</code>, and <code>QUALTRICS_COURIER_SURVEY_ID</code> and <code>DASHBOARD_ACCESS_CODE</code> in Vercel to connect both Honduras surveys.</div>
+<div id="configBanner" class="banner">Live data is unavailable. Configure <code>QUALTRICS_API_TOKEN</code>, <code>QUALTRICS_DATA_CENTER</code>, <code>QUALTRICS_SURVEY_ID</code>, and <code>QUALTRICS_COURIER_SURVEY_ID</code> in Vercel to connect both Honduras surveys.</div>
 <section class="kpis">
   <div class="card kpi"><div class="label">Completed observations</div><div class="value" id="kpiN">—</div><div class="sub">Finished responses</div></div>
   <div class="card kpi"><div class="label">Valid GPS observations</div><div class="value" id="kpiGps">—</div><div class="sub" id="kpiGpsSub">Usable coordinates</div></div>
@@ -156,29 +155,19 @@ async function loadDashboard(force=false){
     const params=currentFilterParams();
     if(force)params.set('t',Date.now());
     const qs=params.toString();
-    let r=await fetch('/api/data'+(qs?'?'+qs:''),{cache:'no-store'});
-    if(r.status===401){
-      const code=window.prompt('Honduras dashboard access code:');
-      if(code===null)throw new Error('Authentication required');
-      const login=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
-      if(!login.ok){alert('Invalid access code.');throw new Error('Authentication failed')}
-      document.getElementById('logoutBtn').style.display='inline-block';
-      r=await fetch('/api/data'+(qs?'?'+qs:''),{cache:'no-store'});
-    }
+    const r=await fetch('/api/data'+(qs?'?'+qs:''),{cache:'no-store'});
     if(!r.ok){const body=await r.json().catch(()=>({}));throw Object.assign(new Error(body.error||'Unable to load data'),{status:r.status})}
-    document.getElementById('logoutBtn').style.display='inline-block';
+    
     dashboard=await r.json();
     status.textContent='Live Qualtrics · Honduras';status.className='status';document.getElementById('configBanner').classList.remove('show');
   }catch(e){
     console.error(e);dashboard=demo;status.textContent=e.status===503?'Setup required':'Data unavailable';status.className='status demo';
     const banner=document.getElementById('configBanner');
-    const setupHint=e.message==='Dashboard access code is not configured'
-      ? ' Add DASHBOARD_ACCESS_CODE in Vercel for Production, then redeploy.'
-      : e.message==='Qualtrics environment variables are not configured'
-        ? ' Add QUALTRICS_API_TOKEN in Vercel for Production, then redeploy.'
-        : '';
+    const setupHint=e.message==='Qualtrics environment variables are not configured'
+      ? ' Add QUALTRICS_API_TOKEN in Vercel for Production, then redeploy.'
+      : '';
     banner.textContent=(e.message||'Live data is unavailable.')+setupHint;
-    banner.classList.add('show');document.getElementById('logoutBtn').style.display='none';
+    banner.classList.add('show');
   }
   renderAll();
   loadCourierSummary();
@@ -345,16 +334,6 @@ function downloadCourierData(){
   buttons.forEach(b=>b.disabled=true);
   const a=document.createElement('a');a.href='/api/download-courier-data?t='+Date.now();a.download='';document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>{const n=courierSummary?.summary?.responses||0;buttons.forEach(b=>b.disabled=!(n>0))},1800);
-}
-
-async function logoutDashboard(){
-  try{await fetch('/api/logout',{method:'POST'})}catch{}
-  document.getElementById('logoutBtn').style.display='none';
-  dashboard=demo;courierSummary=null;renderAll();
-  document.getElementById('status').textContent='Signed out';document.getElementById('status').className='status demo';
-  ['courierN','courierLinked','courierLinkRate'].forEach(id=>document.getElementById(id).textContent='—');
-  ['courierRawBtn','courierPanelDownload'].forEach(id=>document.getElementById(id).disabled=true);
-  document.getElementById('courierNote').textContent='Refresh data to sign in again.';
 }
 
 loadDashboard();

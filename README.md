@@ -9,11 +9,11 @@ Includes field-observation monitoring, observer progress, device-GPS mapping, qu
 - Observations: https://mit.co1.qualtrics.com/jfe/form/SV_9LXy32LyJuSlvgi
 - Courier survey: https://mit.co1.qualtrics.com/jfe/form/SV_8e48NZfmjF2fFrM
 
-These survey IDs are the server defaults in `lib/config.js`. No responses, API tokens, or access codes are included.
+These survey IDs are the server defaults in `lib/config.js`. No responses or API tokens are included.
 
 ## Vercel setup
 
-1. Import this private GitHub repository into a new Vercel project.
+1. Import this GitHub repository into a new Vercel project.
 2. Use Framework Preset **Other**, root directory `./`, and default install/build/output settings.
 3. Set these variables in Vercel **Project → Settings → Environment Variables** for Production, then redeploy:
 
@@ -23,11 +23,10 @@ These survey IDs are the server defaults in `lib/config.js`. No responses, API t
 | `QUALTRICS_DATA_CENTER` | Your account's API data center; template default is `iad1` |
 | `QUALTRICS_SURVEY_ID` | `SV_9LXy32LyJuSlvgi` |
 | `QUALTRICS_COURIER_SURVEY_ID` | `SV_8e48NZfmjF2fFrM` |
-| `DASHBOARD_ACCESS_CODE` | A Honduras-specific access code |
 
-Live-data access requires an access code. Share it only with the fieldwork/research team. Configure Preview too if preview deployments use live data. Use `.env.example` as a checklist; never commit real credentials.
+The dashboard and its data/download endpoints are public. Configure Preview too if preview deployments use live data. Use `.env.example` as a checklist; never commit real credentials.
 
-After deployment, enter the access code and verify `/api/data` and `/api/courier-summary` return JSON. Live Honduras exports have not been tested without API credentials.
+After deployment, verify `/api/data` and `/api/courier-summary` return JSON. Live Honduras exports have not been tested without API credentials.
 
 ## Verify the Honduras fields
 

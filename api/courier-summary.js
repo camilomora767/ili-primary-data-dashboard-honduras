@@ -1,12 +1,10 @@
 import { courierSurveyId } from '../lib/config.js';
 import { exportResponses, isFinished, missing } from '../lib/qualtrics.js';
-import { requireAccess } from '../lib/auth.js';
 
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store');
   res.setHeader('X-Content-Type-Options','nosniff');
   if (req.method!=='GET') return res.status(405).json({error:'Method not allowed'});
-  if (!requireAccess(req,res)) return;
 
   const token=process.env.QUALTRICS_API_TOKEN;
   const dataCenter=process.env.QUALTRICS_DATA_CENTER||'iad1';

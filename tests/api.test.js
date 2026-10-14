@@ -4,12 +4,13 @@ import observations from '../api/data.js';
 import courierSummary from '../api/courier-summary.js';
 import downloadObservations from '../api/download-raw-data.js';
 import downloadCouriers from '../api/download-courier-data.js';
-import { setAccessCookie } from '../lib/auth.js';
+import downloadImages from '../api/download-images.js';
+import session from '../api/session.js';
 
 const observationId = 'SV_9LXy32LyJuSlvgi';
 const courierId = 'SV_8e48NZfmjF2fFrM';
 const envKeys = [
-  'DASHBOARD_ACCESS_CODE', 'QUALTRICS_API_TOKEN', 'QUALTRICS_DATA_CENTER',
+  'QUALTRICS_API_TOKEN', 'QUALTRICS_DATA_CENTER',
   'QUALTRICS_SURVEY_ID', 'QUALTRICS_COURIER_SURVEY_ID',
   'QUALTRICS_OPERATION_QUESTION_ID', 'QUALTRICS_VEHICLE_QUESTION_ID',
   'QUALTRICS_PHOTO_QUESTION_ID'
@@ -125,9 +126,7 @@ function response() {
 }
 
 function request(query = {}) {
-  const res = response();
-  setAccessCookie(res);
-  return { method: 'GET', query, headers: { cookie: res.headers['Set-Cookie'].split(';')[0] } };
+  return { method: 'GET', query, headers: {} };
 }
 
 function exportStarts() {
@@ -137,7 +136,6 @@ function exportStarts() {
 describe('Honduras API integration with synthetic Qualtrics exports', { concurrency: false }, () => {
   beforeEach(() => {
     for (const key of envKeys) delete process.env[key];
-    process.env.DASHBOARD_ACCESS_CODE = 'synthetic-dashboard-code';
     process.env.QUALTRICS_API_TOKEN = 'synthetic-token-only';
     fetchCalls = [];
     datasets = fixtureDatasets();
@@ -247,12 +245,45 @@ describe('Honduras API integration with synthetic Qualtrics exports', { concurre
     assert.deepEqual(exportStarts(), [`https://iad1.qualtrics.com/API/v3/surveys/${courierId}/export-responses`]);
   });
 
-  test('all tested data handlers reject unauthenticated requests before calling Qualtrics', async () => {
+  test('data and download handlers accept public requests without a cookie', async () => {
+    datasets[observationId] = [exportedRow('R_public_observation', { finished: true })];
     for (const handler of [observations, courierSummary, downloadObservations, downloadCouriers]) {
       const res = response();
-      await handler({ method: 'GET', headers: {}, query: {} }, res);
-      assert.equal(res.statusCode, 401);
-      assert.deepEqual(res.body, { error: 'Authentication required' });
+      await handler(request(), res);
+      assert.equal(res.statusCode, 200);
+    }
+    const imageResponse = response();
+    await downloadImages(request(), imageResponse);
+    assert.equal(imageResponse.statusCode, 404);
+    assert.deepEqual(imageResponse.body, { error: 'No uploaded vehicle images were found in completed responses.' });
+    assert.equal(exportStarts().length, 5);
+  });
+
+  test('session reports public dashboard access without contacting Qualtrics', async () => {
+    const res = response();
+    await session(request(), res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { authenticated: true, protected: false, country: 'Honduras' });
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  test('all handlers reject unsupported methods before contacting Qualtrics', async () => {
+    for (const handler of [observations, courierSummary, downloadObservations, downloadCouriers, downloadImages, session]) {
+      const res = response();
+      await handler({ method: 'POST', headers: {}, query: {} }, res);
+      assert.equal(res.statusCode, 405);
+      assert.deepEqual(res.body, { error: 'Method not allowed' });
+    }
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  test('Qualtrics API token remains required for all data and download handlers', async () => {
+    delete process.env.QUALTRICS_API_TOKEN;
+    for (const handler of [observations, courierSummary, downloadObservations, downloadCouriers, downloadImages]) {
+      const res = response();
+      await handler(request(), res);
+      assert.equal(res.statusCode, 503);
+      assert.match(res.body.error, /environment variables are not configured/);
     }
     assert.equal(fetchCalls.length, 0);
   });
