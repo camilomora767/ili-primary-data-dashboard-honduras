@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ILI Honduras · Primary Data Collection Dashboard</title>
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--ink:#17202a;--muted:#64748b;--line:#e4e8ee;--paper:#f6f8fb;--card:#fff;--teal:#0c7c86;--teal2:#16a3ad;--navy:#0c2138;--orange:#e56b4a;--green:#1f9d78;--blue:#5470c6;--shadow:0 10px 30px rgba(15,23,42,.07)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,select,input{font:inherit}
+.shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.side{background:var(--navy);color:#fff;padding:26px 18px;position:sticky;top:0;height:100vh}.brand-link{display:flex;gap:11px;align-items:center;margin:0 7px 31px;color:#fff;text-decoration:none}.brand-link:hover .brand-title{text-decoration:underline;text-underline-offset:3px}.brand-logo{width:72px;height:72px;min-width:72px;object-fit:contain;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,.18))}.brand-title{display:block;font-weight:790;font-size:14px;line-height:1.16}.brand-sub{display:block;color:#9fb1c6;font-size:12px;margin-top:4px;line-height:1.3}.nav a{display:flex;gap:10px;align-items:center;color:#b8c5d4;text-decoration:none;padding:11px 12px;border-radius:9px;margin:4px 0;font-size:14px}.nav a.active,.nav a:hover{background:rgba(255,255,255,.08);color:#fff}.nav .dot{width:8px;height:8px;border-radius:50%;background:#4a627c}.nav a.active .dot{background:#27c6cf}.side-note{position:absolute;bottom:22px;left:18px;right:18px;color:#91a5ba;font-size:11px;line-height:1.5}.side-note a{color:#a9d8ef;text-decoration:none}.side-note a:hover{text-decoration:underline}
+.main{min-width:0}.top{min-height:76px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px;padding:12px 30px;position:sticky;top:0;z-index:700}.top h1{font-size:19px;margin:0}.top p{font-size:12px;color:var(--muted);margin:3px 0 0}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 13px;cursor:pointer;font-weight:700;font-size:12px;color:var(--ink)}.btn:hover{background:#f8fafc}.btn.primary{background:var(--teal);color:#fff;border-color:var(--teal)}.btn.download{background:#fff;color:var(--teal);border-color:#9bcbd0}.btn:disabled{opacity:.55;cursor:not-allowed}.status{font-size:11px;padding:6px 9px;border-radius:999px;background:#e8f7f3;color:#11755a;font-weight:750}.status.demo{background:#fff3dc;color:#9a6500}
+.content{padding:25px 30px 42px;max-width:1580px;margin:auto}.banner{display:none;background:#fff8e8;border:1px solid #f1d79c;border-radius:12px;padding:13px 15px;margin-bottom:18px;font-size:13px;color:#795500}.banner.show{display:block}.banner code{background:#fff1c6;padding:2px 5px;border-radius:5px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.kpi{padding:18px}.kpi .label{color:var(--muted);font-size:12px;font-weight:680}.kpi .value{font-size:28px;font-weight:780;letter-spacing:-.8px;margin-top:8px}.kpi .sub{font-size:11px;color:var(--muted);margin-top:5px}.section{margin-top:14px}.panel{padding:17px}.filter-card{padding:16px 17px}.filter-grid{display:grid;grid-template-columns:1.45fr 1fr .75fr .75fr 1fr 1fr;gap:10px;align-items:end}.filter-field{display:flex;flex-direction:column;gap:5px}.filter-field label{font-size:10px;color:var(--muted);font-weight:750}.filter-field input,.filter-field select{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 9px;color:#334155;font-size:11px;min-height:36px}.filter-actions{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}.filter-summary{font-size:11px;color:var(--muted);margin-left:auto}.filter-summary strong{color:var(--ink)}.panel-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:13px}.panel h2{font-size:14px;margin:0}.panel .eyebrow{font-size:11px;color:var(--muted);margin-top:3px}.filters{display:flex;gap:7px;align-items:center}.filters select{border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px 9px;color:#475569;font-size:11px;max-width:220px}
+.progress-panel{padding-bottom:12px}.observer-chart-wrap{height:430px;min-height:260px}.progress-note{font-size:10px;color:var(--muted);margin-top:4px}.observer-tools{display:flex;gap:8px;align-items:center}.observer-tools select{border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px 9px;color:#475569;font-size:11px}.map-note{font-size:10px;color:var(--muted);white-space:nowrap}.map-section{margin-top:14px}.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.triple{display:grid;grid-template-columns:1fr 1fr;gap:14px}.chartbox{height:255px}#map{height:560px;border-radius:11px;overflow:hidden;background:#eef2f6}.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:10px;color:var(--muted)}.legend span{display:flex;gap:5px;align-items:center;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.legend i{width:8px;height:8px;border-radius:50%;display:inline-block;min-width:8px}
+.quality-list{display:flex;flex-direction:column;gap:12px;margin-top:5px}.qrow{display:grid;grid-template-columns:180px 1fr 90px;gap:9px;align-items:center;font-size:10px}.qbar{height:7px;border-radius:9px;background:#edf1f5;overflow:hidden}.qbar i{height:100%;display:block;background:linear-gradient(90deg,var(--teal2),var(--green));border-radius:9px}.qdetail{text-align:right;color:var(--muted)}
+.question-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.qcard{border:1px solid var(--line);border-radius:11px;padding:13px;background:#fff;min-height:128px}.qcard .qid{color:var(--teal);font-weight:800;font-size:10px}.qcard h3{font-size:12px;line-height:1.4;margin:7px 0 12px}.mini{display:flex;align-items:center;gap:8px;font-size:10px;margin:7px 0}.mini b{width:115px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.minibar{height:5px;background:#edf1f5;flex:1;border-radius:7px;overflow:hidden}.minibar i{display:block;height:100%;background:var(--teal2)}.empty{padding:36px 18px;text-align:center;color:var(--muted);font-size:12px}
+.tablewrap{overflow:auto;max-height:440px}.table{width:100%;border-collapse:collapse;font-size:11px}.table th{position:sticky;top:0;background:#f9fafb;color:#64748b;text-align:left;font-weight:700;border-bottom:1px solid var(--line);padding:10px 9px;z-index:1}.table td{padding:10px 9px;border-bottom:1px solid #edf0f3;white-space:nowrap}.email-tag{padding:4px 7px;border-radius:999px;background:#eef6f8;color:#0a6b73;font-weight:700;font-size:10px}.email-tag.unassigned{background:#f1f5f9;color:#64748b}.photo-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1}.photo-dot.yes{background:var(--green)}.footer{color:#94a3b8;text-align:center;font-size:10px;margin-top:25px}.footer a{color:#7188a5;text-decoration:none}.footer a:hover{text-decoration:underline}.leaflet-popup-content{font-size:11px}.leaflet-control-attribution{font-size:8px!important}.download-msg{font-size:10px;color:var(--muted);display:none}.download-msg.show{display:inline}
+.courier-panel{padding-bottom:15px}.courier-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.courier-stats>div{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fbfcfd}.courier-stats span{display:block;color:var(--muted);font-size:10px;font-weight:700}.courier-stats strong{display:block;font-size:21px;margin-top:5px}.courier-note{margin-top:9px;font-size:10px;color:var(--muted)}
+@media(max-width:1120px){.shell{grid-template-columns:1fr}.side{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.split,.triple{grid-template-columns:1fr}.question-grid{grid-template-columns:repeat(2,1fr)}.filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.top{position:static}}
+@media(max-width:680px){.courier-stats{grid-template-columns:1fr}#map{height:440px}.content{padding:18px}.top{padding:12px 18px;align-items:flex-start}.kpis{grid-template-columns:1fr 1fr}.question-grid{grid-template-columns:1fr}.filter-grid{grid-template-columns:1fr}.filter-summary{margin-left:0;width:100%}.actions .status{display:none}.qrow{grid-template-columns:125px 1fr 70px}.mini b{width:90px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+  <a class="brand-link" href="https://ctl.mit.edu/mit-ctl-informal-logistics-initiative" target="_blank" rel="noopener noreferrer" title="MIT CTL Informal Logistics Initiative">
+    <img class="brand-logo" src="/assets/ili-logo.png" alt="Informal Logistics Initiative logo">
+    <div><span class="brand-title">MIT CTL – Informal<br>Logistics Initiative</span><span class="brand-sub">Honduras · Primary Data Collection</span></div>
+  </a>
+  <nav class="nav">
+    <a class="active" href="#overview"><span class="dot"></span>Overview</a>
+    <a href="#observer-progress"><span class="dot"></span>Observer Progress</a>
+    <a href="#courier-survey"><span class="dot"></span>Courier Survey</a>
+    <a href="#map-panel"><span class="dot"></span>Observation Map</a>
+    <a href="#quality"><span class="dot"></span>Data Quality</a>
+    <a href="#questions"><span class="dot"></span>Survey Questions</a>
+    <a href="#dwell"><span class="dot"></span>Dwell Time</a>
+    <a href="#observations"><span class="dot"></span>Recent Observations</a>
+  </nav>
+  <div class="side-note">MIT CTL · Informal Logistics Initiative<br>contact: <a href="mailto:camimora@mit.edu">camimora@mit.edu</a></div>
+</aside>
+<main class="main">
+<header class="top">
+  <div><h1>Honduras — Primary Data Collection Dashboard</h1><p>Field observations of last-mile and informal delivery activity in Honduras</p></div>
+  <div class="actions">
+    <span id="status" class="status demo">Connecting…</span>
+    <button id="logoutBtn" class="btn" onclick="logoutDashboard()" style="display:none">Sign out</button>
+    <span id="downloadMsg" class="download-msg">Preparing ZIP…</span>
+    <button id="downloadBtn" class="btn download" onclick="downloadImages()" disabled>Download images</button>
+    <button id="rawBtn" class="btn download" onclick="downloadRawData()" disabled>Download raw data</button>
+    <button id="courierRawBtn" class="btn download" onclick="downloadCourierData()" disabled>Download courier data</button>
+    <button class="btn" onclick="loadDashboard(true)">Refresh data</button>
+    <button class="btn primary" onclick="loadDashboard(true)">Sync Qualtrics</button>
+  </div>
+</header>
+<div class="content" id="overview">
+<section class="section card panel" style="margin:0 0 16px"><div class="panel-head" style="margin:0;align-items:center"><div><h2>Honduras fieldwork instruments</h2><div class="eyebrow">Collect responses in Qualtrics</div></div><div class="actions"><a class="btn download" style="text-decoration:none" href="https://mit.co1.qualtrics.com/jfe/form/SV_9LXy32LyJuSlvgi" target="_blank" rel="noopener noreferrer">Open observation form ↗</a><a class="btn download" style="text-decoration:none" href="https://mit.co1.qualtrics.com/jfe/form/SV_8e48NZfmjF2fFrM" target="_blank" rel="noopener noreferrer">Open courier survey ↗</a></div></div></section>
+<div id="configBanner" class="banner">Live data is unavailable. Configure <code>QUALTRICS_API_TOKEN</code>, <code>QUALTRICS_DATA_CENTER</code>, <code>QUALTRICS_SURVEY_ID</code>, and <code>QUALTRICS_COURIER_SURVEY_ID</code> and <code>DASHBOARD_ACCESS_CODE</code> in Vercel to connect both Honduras surveys.</div>
+<section class="kpis">
+  <div class="card kpi"><div class="label">Completed observations</div><div class="value" id="kpiN">—</div><div class="sub">Finished responses</div></div>
+  <div class="card kpi"><div class="label">Valid GPS observations</div><div class="value" id="kpiGps">—</div><div class="sub" id="kpiGpsSub">Usable coordinates</div></div>
+  <div class="card kpi"><div class="label">Median dwell time</div><div class="value" id="kpiDwell">—</div><div class="sub">Filtered to ≤ 30 minutes</div></div>
+  <div class="card kpi"><div class="label">Identified observers</div><div class="value" id="kpiObservers">—</div><div class="sub" id="kpiObserversSub">Unique RecipientEmail values</div></div>
+</section>
+
+<section class="section card panel courier-panel" id="courier-survey">
+  <div class="panel-head">
+    <div><h2>Courier survey</h2><div class="eyebrow">Responses from the Honduras courier questionnaire with ObservationID coverage</div></div>
+    <button id="courierPanelDownload" class="btn download" onclick="downloadCourierData()" disabled>Download courier raw data</button>
+  </div>
+  <div class="courier-stats">
+    <div><span>Completed courier responses</span><strong id="courierN">—</strong></div>
+    <div><span>ObservationID provided</span><strong id="courierLinked">—</strong></div>
+    <div><span>ObservationID coverage</span><strong id="courierLinkRate">—</strong></div>
+  </div>
+  <div class="courier-note" id="courierNote">Loading courier survey…</div>
+</section>
+
+<section class="section card filter-card" id="filters-panel">
+  <div class="panel-head"><div><h2>Dashboard filters</h2><div class="eyebrow">Use filters to focus the entire dashboard. Observer supports partial email/domain search.</div></div></div>
+  <div class="filter-grid">
+    <div class="filter-field"><label for="filterObserver">Observer (RecipientEmail)</label><input id="filterObserver" list="observerOptions" placeholder="e.g., student@university.edu"><datalist id="observerOptions"></datalist></div>
+    <div class="filter-field"><label for="filterReference">External reference</label><input id="filterReference" list="referenceOptions" placeholder="e.g., MIT01"><datalist id="referenceOptions"></datalist></div>
+    <div class="filter-field"><label for="filterFrom">From date</label><input id="filterFrom" type="date"></div>
+    <div class="filter-field"><label for="filterTo">To date</label><input id="filterTo" type="date"></div>
+    <div class="filter-field"><label for="filterOperation">Operation</label><select id="filterOperation"><option value="">All operations</option></select></div>
+    <div class="filter-field"><label for="filterVehicle">Vehicle</label><select id="filterVehicle"><option value="">All vehicles</option></select></div>
+  </div>
+  <div class="filter-actions">
+    <button class="btn primary" onclick="applyFilters()">Apply filters</button>
+    <button class="btn" onclick="clearFilters()">Clear filters</button>
+    <span class="filter-summary" id="filterSummary">All completed observations</span>
+  </div>
+</section>
+
+<section class="section card panel progress-panel" id="observer-progress">
+  <div class="panel-head">
+    <div><h2>Observations by observer</h2><div class="eyebrow">Completed observations grouped by RecipientEmail; use filters above to narrow hundreds of observers</div></div>
+    <div class="observer-tools">
+      <span class="progress-note" id="observerProgressNote"></span>
+      <select id="observerLimit" onchange="renderObserverProgress()"><option value="20">Top 20</option><option value="50">Top 50</option><option value="100">Top 100</option></select>
+      <button class="btn download" type="button" onclick="downloadDisplayedObservers()">Download displayed</button>
+    </div>
+  </div>
+  <div id="observerChartWrap" class="observer-chart-wrap"><canvas id="observerChart"></canvas></div>
+</section>
+
+<section class="section card panel map-section" id="map-panel">
+  <div class="panel-head"><div><h2>Observation map</h2><div class="eyebrow">Device GPS points in the current filtered view · at most 4,000 records</div></div><div class="map-note" id="mapNote"></div></div>
+  <div id="map"></div><div id="mapLegend" class="legend"></div>
+</section>
+
+<section class="section split" id="quality">
+  <div class="card panel"><div class="panel-head"><div><h2>Data quality</h2><div class="eyebrow">Operational completeness of each completed observation</div></div></div><div id="qualityList" class="quality-list"></div></div>
+  <div class="card panel" id="dwell"><div class="panel-head"><div><h2>Dwell time</h2><div class="eyebrow">EndDate − StartDate · observations ≤ 30 minutes</div></div></div><div class="chartbox"><canvas id="dwellChart"></canvas></div></div>
+</section>
+
+<section class="section card panel" id="questions">
+  <div class="panel-head"><div><h2>Survey question summaries</h2><div class="eyebrow">Question text is read from the current Qualtrics survey definition</div></div><input id="questionSearch" placeholder="Search questions…" oninput="renderQuestions()" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11px"></div>
+  <div id="questionGrid" class="question-grid"></div>
+</section>
+
+<section class="section card panel" id="observations">
+  <div class="panel-head"><div><h2>Recent observations</h2><div class="eyebrow">RecipientEmail is shown as the observer identifier · most recent 100 of at most 4,000 records</div></div></div>
+  <div class="tablewrap"><table class="table"><thead><tr><th>Recorded</th><th>Observer (RecipientEmail)</th><th>Reference</th><th>Response</th><th>GPS</th><th>Dwell</th><th>Photo</th></tr></thead><tbody id="obsRows"></tbody></table></div>
+</section>
+<div class="footer">MIT Center for Transportation &amp; Logistics · <a href="https://ctl.mit.edu/mit-ctl-informal-logistics-initiative" target="_blank" rel="noopener noreferrer">Informal Logistics Initiative</a> · contact: <a href="mailto:camimora@mit.edu">camimora@mit.edu</a></div>
+</div>
+</main>
+</div>
+<script>
+const demo={mode:'demo',generatedAt:new Date().toISOString(),filters:{},filterOptions:{observers:[],references:[],operations:[],vehicles:[],minDate:'',maxDate:''},summary:{responses:0,totalResponses:0,gps:0,observers:0,identifiedResponses:0,images:0,totalImages:0,medianDwellMin:null},observerCounts:[],durationBins:{labels:['0–60','61–120','121–180','181–240','241–360','361+'],values:[0,0,0,0,0,0]},dwellBins:{labels:['0–2','2–5','5–10','10–15','15–20','20–30'],values:[0,0,0,0,0,0]},quality:[],questions:[],points:[],observations:[]};
+let dashboard=demo,courierSummary=null,map=null,dwellChart=null,observerChart=null;
+const colors=['#0c7c86','#e56b4a','#5470c6','#1f9d78','#8b5cf6','#d97706','#db2777','#0891b2','#65a30d','#475569'];
+const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function currentFilterParams(){
+  const pairs={
+    observer:document.getElementById('filterObserver')?.value.trim()||'',
+    reference:document.getElementById('filterReference')?.value.trim()||'',
+    from:document.getElementById('filterFrom')?.value||'',
+    to:document.getElementById('filterTo')?.value||'',
+    operation:document.getElementById('filterOperation')?.value||'',
+    vehicle:document.getElementById('filterVehicle')?.value||''
+  };
+  const params=new URLSearchParams();
+  Object.entries(pairs).forEach(([k,v])=>{if(v)params.set(k,v)});
+  return params;
+}
+
+async function loadDashboard(force=false){
+  const status=document.getElementById('status');status.textContent='Syncing…';status.className='status';
+  try{
+    const params=currentFilterParams();
+    if(force)params.set('t',Date.now());
+    const qs=params.toString();
+    let r=await fetch('/api/data'+(qs?'?'+qs:''),{cache:'no-store'});
+    if(r.status===401){
+      const code=window.prompt('Honduras dashboard access code:');
+      if(code===null)throw new Error('Authentication required');
+      const login=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+      if(!login.ok){alert('Invalid access code.');throw new Error('Authentication failed')}
+      document.getElementById('logoutBtn').style.display='inline-block';
+      r=await fetch('/api/data'+(qs?'?'+qs:''),{cache:'no-store'});
+    }
+    if(!r.ok){const body=await r.json().catch(()=>({}));throw Object.assign(new Error(body.error||'Unable to load data'),{status:r.status})}
+    document.getElementById('logoutBtn').style.display='inline-block';
+    dashboard=await r.json();
+    status.textContent='Live Qualtrics · Honduras';status.className='status';document.getElementById('configBanner').classList.remove('show');
+  }catch(e){
+    console.error(e);dashboard=demo;status.textContent=e.status===503?'Setup required':'Data unavailable';status.className='status demo';document.getElementById('configBanner').classList.add('show');document.getElementById('logoutBtn').style.display='none';
+  }
+  renderAll();
+  loadCourierSummary();
+}
+
+async function loadCourierSummary(){
+  const note=document.getElementById('courierNote');
+  try{
+    const r=await fetch('/api/courier-summary?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)throw new Error(await r.text());
+    courierSummary=await r.json();
+    const s=courierSummary.summary||{};
+    document.getElementById('courierN').textContent=s.responses??'—';
+    document.getElementById('courierLinked').textContent=s.linkedResponses??'—';
+    document.getElementById('courierLinkRate').textContent=s.responses?Number(s.linkRate||0).toFixed(1)+'%':'—';
+    note.textContent=`${s.uniqueObservationIds||0} unique ObservationID value${s.uniqueObservationIds===1?'':'s'} provided`;
+    const label=s.responses>0?`Download courier data (${s.responses})`:'Download courier data';
+    for(const id of ['courierRawBtn','courierPanelDownload']){const b=document.getElementById(id);if(b){b.disabled=!(s.responses>0);b.textContent=id==='courierPanelDownload'?(s.responses>0?`Download courier raw data (${s.responses})`:'Download courier raw data'):label}}
+  }catch(e){
+    console.error(e);courierSummary=null;
+    document.getElementById('courierN').textContent='—';document.getElementById('courierLinked').textContent='—';document.getElementById('courierLinkRate').textContent='—';
+    note.textContent='Courier survey unavailable. Check QUALTRICS_COURIER_SURVEY_ID and redeploy.';
+    for(const id of ['courierRawBtn','courierPanelDownload']){const b=document.getElementById(id);if(b)b.disabled=true}
+  }
+}
+
+function renderAll(){
+  const s=dashboard.summary||{};
+  document.getElementById('kpiN').textContent=s.responses??'—';
+  document.getElementById('kpiGps').textContent=s.gps??'—';
+  document.getElementById('kpiGpsSub').textContent=s.responses?Math.round(100*(s.gps||0)/s.responses)+'% of filtered responses':'Usable coordinates';
+  document.getElementById('kpiDwell').textContent=s.medianDwellMin==null?'—':Number(s.medianDwellMin).toFixed(1)+' min';
+  document.getElementById('kpiObservers').textContent=s.observers??'—';
+  document.getElementById('kpiObserversSub').textContent=`${s.identifiedResponses||0} of ${s.responses||0} filtered observations linked to RecipientEmail`;
+  const db=document.getElementById('downloadBtn');const totalImages=s.totalImages??s.images??0;db.disabled=!(totalImages>0);db.textContent=totalImages>0?`Download images (${totalImages})`:'Download images';
+  const rb=document.getElementById('rawBtn');const total=s.totalResponses??s.responses??0;rb.disabled=!(total>0);rb.textContent=total>0?`Download raw data (${total})`:'Download raw data';
+  if(dashboard.mode!=='live'){
+    ['kpiN','kpiGps','kpiObservers'].forEach(id=>document.getElementById(id).textContent='—');
+    document.getElementById('kpiObserversSub').textContent='Qualtrics data is not connected';
+  }
+  renderFilterOptions();renderObserverProgress();renderMap();renderQuality();renderQuestions();renderRows();renderCharts();renderFilterSummary();
+}
+
+function renderFilterOptions(){
+  const f=dashboard.filterOptions||{};
+  document.getElementById('observerOptions').innerHTML=(f.observers||[]).map(x=>`<option value="${esc(x)}"></option>`).join('');
+  document.getElementById('referenceOptions').innerHTML=(f.references||[]).map(x=>`<option value="${esc(x)}"></option>`).join('');
+  const op=document.getElementById('filterOperation'),veh=document.getElementById('filterVehicle');
+  const opCurrent=op.value,vehCurrent=veh.value;
+  op.innerHTML='<option value="">All operations</option>'+(f.operations||[]).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+  veh.innerHTML='<option value="">All vehicles</option>'+(f.vehicles||[]).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+  if((f.operations||[]).includes(opCurrent))op.value=opCurrent;
+  if((f.vehicles||[]).includes(vehCurrent))veh.value=vehCurrent;
+  const from=document.getElementById('filterFrom'),to=document.getElementById('filterTo');
+  if(f.minDate){from.min=f.minDate;to.min=f.minDate}if(f.maxDate){from.max=f.maxDate;to.max=f.maxDate}
+}
+
+function renderFilterSummary(){
+  if(dashboard.mode!=='live'){document.getElementById('filterSummary').textContent='Qualtrics data is not connected';return}
+  const s=dashboard.summary||{},filters=dashboard.filters||{};
+  const active=Object.values(filters).filter(Boolean).length;
+  const text=s.totalResponses!=null&&s.responses!==s.totalResponses?`<strong>${s.responses}</strong> of ${s.totalResponses} completed observations`:`<strong>${s.responses||0}</strong> completed observations`;
+  document.getElementById('filterSummary').innerHTML=text+(active?` · ${active} active filter${active===1?'':'s'}`:' · no filters');
+}
+
+function applyFilters(){loadDashboard(true)}
+function clearFilters(){
+  ['filterObserver','filterReference','filterFrom','filterTo'].forEach(id=>document.getElementById(id).value='');
+  ['filterOperation','filterVehicle'].forEach(id=>document.getElementById(id).value='');
+  loadDashboard(true);
+}
+
+function renderObserverProgress(){
+  const all=dashboard.observerCounts||[];
+  const identified=all.filter(x=>x.identified);
+  const unassigned=all.filter(x=>!x.identified).reduce((a,b)=>a+b.count,0);
+  const limit=Number(document.getElementById('observerLimit')?.value||20);
+  const arr=identified.slice(0,limit);
+  const wrap=document.getElementById('observerChartWrap');
+  wrap.style.height=Math.max(280,Math.min(680,110+arr.length*28))+'px';
+  const total=all.reduce((a,b)=>a+b.count,0);
+  const note=[];
+  if(identified.length>arr.length)note.push(`showing top ${arr.length} of ${identified.length} identified observers`);else note.push(`${identified.length} identified observer${identified.length===1?'':'s'}`);
+  if(unassigned)note.push(`${unassigned} observation${unassigned===1?'':'s'} without RecipientEmail`);
+  document.getElementById('observerProgressNote').textContent=total?note.join(' · '):'';
+  if(observerChart)observerChart.destroy();
+  observerChart=new Chart(document.getElementById('observerChart'),{
+    type:'bar',
+    data:{labels:arr.map(x=>x.observer),datasets:[{data:arr.map(x=>x.count),backgroundColor:'#16a3ad',borderRadius:6,barThickness:18,maxBarThickness:22}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} completed observation${c.raw===1?'':'s'}`}}},scales:{x:{beginAtZero:true,ticks:{precision:0,font:{size:10}},grid:{color:'#edf0f3'}},y:{grid:{display:false},ticks:{font:{size:10},autoSkip:false}}}}
+  });
+}
+
+function renderMap(){
+  const pts=dashboard.points||[];
+  if(map)map.remove();map=L.map('map',{scrollWheelZoom:false}).setView([14.8,-86.6],7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  const allObs=[...new Set(pts.map(p=>p.observer))].sort();
+  const useObserverColors=allObs.length<=10;
+  const idx=Object.fromEntries(allObs.map((o,i)=>[o,i]));const bounds=[];
+  pts.forEach((p,j)=>{const lat=Number(p.lat),lon=Number(p.lon);if(p.lat==null||p.lon==null||!Number.isFinite(lat)||!Number.isFinite(lon))return;const color=p.observer==='No RecipientEmail'?'#94a3b8':(useObserverColors?colors[idx[p.observer]%colors.length]:'#0c7c86');const shift=((j%7)-3)*.000018;const marker=L.circleMarker([lat+shift,lon-shift],{radius:6,color:'#263238',weight:1,fillColor:color,fillOpacity:.86}).addTo(map);marker.bindPopup(`<b>${esc(p.observer)}</b><br>${esc(p.externalReference||'')}<br>${esc(p.id)}<br>${lat.toFixed(6)}, ${lon.toFixed(6)}<br>Dwell: ${p.dwell??'—'} min`);bounds.push([lat,lon])});
+  if(bounds.length)map.fitBounds(bounds,{padding:[24,24],maxZoom:15});
+  document.getElementById('mapNote').textContent=`${pts.length} GPS point${pts.length===1?'':'s'} · ${allObs.length} observer${allObs.length===1?'':'s'}`;
+  document.getElementById('mapLegend').innerHTML=useObserverColors?allObs.map((o,i)=>`<span title="${esc(o)}"><i style="background:${o==='No RecipientEmail'?'#94a3b8':colors[i%colors.length]}"></i>${esc(o)}</span>`).join(''):`<span><i style="background:#0c7c86"></i>${allObs.length} observers in view — use filters to narrow</span>`;
+}
+
+function renderQuality(){
+  const el=document.getElementById('qualityList');const arr=dashboard.quality||[];
+  if(!arr.length){el.innerHTML='<div class="empty">No quality indicators to show.</div>';return}
+  el.innerHTML=arr.map(x=>`<div class="qrow"><b title="${esc(x.label)}">${esc(x.label)}</b><div class="qbar"><i style="width:${Math.max(0,Math.min(100,Number(x.percent)||0))}%"></i></div><span class="qdetail">${Number(x.percent).toFixed(0)}% · ${esc(x.detail)}</span></div>`).join('');
+}
+
+function renderQuestions(){
+  const q=(document.getElementById('questionSearch').value||'').toLowerCase();const arr=(dashboard.questions||[]).filter(x=>(x.id+' '+x.label).toLowerCase().includes(q));
+  document.getElementById('questionGrid').innerHTML=arr.length?arr.map(x=>`<article class="qcard"><div class="qid">${esc(x.id)}</div><h3>${esc(x.label)}</h3>${(x.items||[]).slice(0,5).map(it=>{const numeric=x.type==='numeric';const value=Number(it[1]);const width=Math.min(100,Math.max(0,value));return `<div class="mini"><b title="${esc(it[0])}">${esc(it[0])}</b><div class="minibar"><i style="width:${width}%"></i></div><span>${numeric?esc(it[1]):value.toFixed(0)+'%'}</span></div>`}).join('')}</article>`).join(''):'<div class="empty">No matching questions in the current filtered view.</div>';
+}
+
+function renderRows(){
+  const rows=(dashboard.observations||dashboard.points||[]).slice().sort((a,b)=>String(b.recorded).localeCompare(String(a.recorded))).slice(0,100);
+  document.getElementById('obsRows').innerHTML=rows.length?rows.map(p=>{const unassigned=p.observer==='No RecipientEmail';const gps=p.lat!=null&&p.lon!=null&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))?`${Number(p.lat).toFixed(4)}, ${Number(p.lon).toFixed(4)}`:'—';return `<tr><td>${esc(p.recorded||'—')}</td><td><span class="email-tag ${unassigned?'unassigned':''}">${esc(p.observer)}</span></td><td>${esc(p.externalReference||'—')}</td><td>${esc(p.id)}</td><td>${gps}</td><td>${p.dwell==null?'—':Number(p.dwell).toFixed(1)+' min'}</td><td><span class="photo-dot ${p.hasPhoto?'yes':''}" title="${p.hasPhoto?'Photo uploaded':'No photo'}"></span></td></tr>`}).join(''):'<tr><td colspan="7"><div class="empty">No observations match the current filters.</div></td></tr>';
+}
+
+function chart(canvas,existing,labels,values,color){if(existing)existing.destroy();return new Chart(document.getElementById(canvas),{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:color,borderRadius:5}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'#edf0f3'},ticks:{precision:0,font:{size:10}}}}}})}
+function renderCharts(){dwellChart=chart('dwellChart',dwellChart,dashboard.dwellBins?.labels||[],dashboard.dwellBins?.values||[],'#5470c6')}
+
+function downloadDisplayedObservers(){
+  const all=(dashboard.observerCounts||[]).filter(x=>x.identified);
+  const limit=Number(document.getElementById('observerLimit')?.value||20);
+  const rows=all.slice(0,limit);
+  if(!rows.length){alert('There are no identified observers in the current view to download.');return}
+  const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const lines=[['Rank','RecipientEmail','CompletedObservations'],...rows.map((x,i)=>[i+1,x.observer,x.count])];
+  const csv='\uFEFF'+lines.map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const stamp=new Date().toISOString().slice(0,10);
+  a.href=url;a.download=`ILI_Honduras_observations_by_observer_displayed_${stamp}.csv`;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+
+async function downloadImages(){
+  const btn=document.getElementById('downloadBtn'),msg=document.getElementById('downloadMsg');
+  btn.disabled=true;msg.classList.add('show');msg.textContent='Preparing ZIP…';
+  try{
+    const r=await fetch('/api/download-images',{cache:'no-store'});
+    if(!r.ok){let text=await r.text();throw new Error(text||`Download failed (${r.status})`)}
+    const blob=await r.blob();const cd=r.headers.get('content-disposition')||'';const m=cd.match(/filename="?([^";]+)"?/i);const filename=m?m[1]:'ILI_Honduras_vehicle_photos.zip';
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);msg.textContent='ZIP ready';setTimeout(()=>msg.classList.remove('show'),2500);
+  }catch(e){console.error(e);msg.textContent='Download failed';alert('Unable to download images. '+String(e.message||e));setTimeout(()=>msg.classList.remove('show'),3500)}
+  finally{btn.disabled=!((dashboard.summary?.totalImages??dashboard.summary?.images??0)>0)}
+}
+
+function downloadRawData(){
+  const btn=document.getElementById('rawBtn');
+  btn.disabled=true;
+  const a=document.createElement('a');a.href='/api/download-raw-data?t='+Date.now();a.download='';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>{btn.disabled=false},1800);
+}
+
+function downloadCourierData(){
+  const buttons=['courierRawBtn','courierPanelDownload'].map(id=>document.getElementById(id)).filter(Boolean);
+  buttons.forEach(b=>b.disabled=true);
+  const a=document.createElement('a');a.href='/api/download-courier-data?t='+Date.now();a.download='';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>{const n=courierSummary?.summary?.responses||0;buttons.forEach(b=>b.disabled=!(n>0))},1800);
+}
+
+async function logoutDashboard(){
+  try{await fetch('/api/logout',{method:'POST'})}catch{}
+  document.getElementById('logoutBtn').style.display='none';
+  dashboard=demo;courierSummary=null;renderAll();
+  document.getElementById('status').textContent='Signed out';document.getElementById('status').className='status demo';
+  ['courierN','courierLinked','courierLinkRate'].forEach(id=>document.getElementById(id).textContent='—');
+  ['courierRawBtn','courierPanelDownload'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('courierNote').textContent='Refresh data to sign in again.';
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
+

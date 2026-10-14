@@ -1,0 +1,16 @@
+{
+  "name": "ili-primary-data-dashboard-honduras",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1"
+  }
+}
+
