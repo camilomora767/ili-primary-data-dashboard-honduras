@@ -6,6 +6,7 @@ import downloadObservations from '../api/download-raw-data.js';
 import downloadCouriers from '../api/download-courier-data.js';
 import downloadImages from '../api/download-images.js';
 import session from '../api/session.js';
+import ExcelJS from 'exceljs';
 
 const observationId = 'SV_9LXy32LyJuSlvgi';
 const courierId = 'SV_8e48NZfmjF2fFrM';
@@ -82,7 +83,34 @@ function jsonResponse(body) {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
+function csvCell(value) {
+  const text = value == null ? '' : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+// These are synthetic native exports, not a Honduras instrument schema.
+function csvFixture(surveyId) {
+  const rows = datasets[surveyId];
+  const valueKeys = [...new Set(rows.flatMap(row => Object.keys(row.values || {})))].filter(key => key !== 'finished');
+  const headers = ['ResponseId', 'Finished', ...valueKeys];
+  const labels = headers.map(header => header === 'ResponseId' ? 'Response ID' : header === 'Finished' ? 'Finished' : questions[header]?.QuestionText || header);
+  const records = [headers, labels];
+  // Exercise both native variants: two header rows and an optional ImportId row.
+  if (surveyId === courierId) records.push(headers.map(header => JSON.stringify({ ImportId: header === 'ResponseId' ? '_recordId' : header === 'Finished' ? 'finished' : header })));
+  for (const row of rows) records.push(headers.map(header =>
+    header === 'ResponseId' ? row.responseId : header === 'Finished' ? row.values?.finished : row.values?.[header]
+  ));
+  return { headers, labels, text: '\uFEFF' + records.map(record => record.map(csvCell).join(',')).join('\r\n') + '\r\n' };
+}
+
+async function responseWorkbook(res) {
+  const bytes = Buffer.concat(res.chunks);
+  assert.equal(bytes.subarray(0, 2).toString('ascii'), 'PK');
+  return new ExcelJS.Workbook().xlsx.load(bytes);
+}
+
 function mockQualtricsFetch() {
+  const formats = new Map();
   globalThis.fetch = async (url, options = {}) => {
     const parsed = new URL(url);
     fetchCalls.push({ url: String(url), options });
@@ -95,13 +123,17 @@ function mockQualtricsFetch() {
     if (path === '') return jsonResponse({ result: { Questions: questions } });
     if (path === '/export-responses') {
       assert.equal(options.method, 'POST');
-      assert.deepEqual(JSON.parse(options.body), { format: 'json', compress: false });
+      const body = JSON.parse(options.body);
+      assert.ok(['json', 'csv'].includes(body.format), 'Only analytics JSON or native CSV should be requested');
+      assert.deepEqual(body, body.format === 'csv' ? { format: 'csv', compress: false, useLabels: true } : { format: 'json', compress: false });
+      formats.set(surveyId, body.format);
       return jsonResponse({ result: { progressId: 'mock-progress' } });
     }
     if (path === '/export-responses/mock-progress') {
       return jsonResponse({ result: { status: 'complete', fileId: 'mock-file' } });
     }
     if (path === '/export-responses/mock-file/file') {
+      if (formats.get(surveyId) === 'csv') return new Response(csvFixture(surveyId).text, { headers: { 'Content-Type': 'text/csv; charset=utf-8' } });
       return jsonResponse({ responses: datasets[surveyId] });
     }
     assert.fail(`Unexpected mock request path: ${parsed.pathname}`);
@@ -120,8 +152,8 @@ function response() {
     json(body) { this.body = body; return this; },
     setHeader(name, value) { this.headers[name] = value; },
     flushHeaders() { this.headersSent = true; },
-    write(chunk) { this.chunks.push(String(chunk)); },
-    end() { this.ended = true; }
+    write(chunk) { this.headersSent = true; this.chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))); },
+    end(chunk) { if (chunk != null) this.write(chunk); this.ended = true; }
   };
 }
 
@@ -211,37 +243,54 @@ describe('Honduras API integration with synthetic Qualtrics exports', { concurre
     assert.equal(res.body.observations[0].hasPhoto, true);
   });
 
-  test('raw observation download uses the Honduras instrument and filename with completed rows only', async () => {
+  test('observation Excel download retains native headers and labels with completed rows only', async () => {
+    const expected = csvFixture(observationId);
     const res = response();
     await downloadObservations(request(), res);
     assert.equal(res.statusCode, 200);
-    assert.match(res.headers['Content-Disposition'], /filename="ILI_Honduras_raw_observations_\d{4}-\d{2}-\d{2}\.csv"/);
-    assert.equal(res.headers['Content-Type'], 'text/csv; charset=utf-8');
+    assert.match(res.headers['Content-Disposition'], /filename="ILI_Honduras_observations_\d{4}-\d{2}-\d{2}\.xlsx"/);
+    assert.equal(res.headers['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     assert.equal(res.headers['Cache-Control'], 'private, no-store');
+    assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
     assert.equal(res.ended, true);
-    const csv = res.chunks.join('');
-    assert.ok(csv.startsWith('\uFEFF'));
-    assert.ok(csv.includes('R_device_gps'));
-    assert.ok(csv.includes('R_ip_location_only'));
-    assert.ok(csv.includes('"Paquete, delicado"'));
-    assert.ok(!csv.includes('R_unfinished_observation'));
-    assert.ok(!csv.includes('R_missing_completion_observation'));
+    const workbook = await responseWorkbook(res);
+    assert.deepEqual(workbook.worksheets.map(sheet => sheet.name), ['Sheet0', 'Data dictionary']);
+    const sheet = workbook.getWorksheet('Sheet0');
+    assert.deepEqual(sheet.getRow(1).values.slice(1), expected.headers);
+    assert.deepEqual(sheet.getRow(2).values.slice(1), expected.labels);
+    assert.equal(sheet.rowCount, 4);
+    assert.deepEqual([sheet.getCell(3, 1).value, sheet.getCell(4, 1).value], ['R_device_gps', 'R_ip_location_only']);
+    assert.equal(sheet.getCell(3, expected.headers.indexOf('QID99') + 1).value, 'Paquete, delicado');
+    const dictionary = workbook.getWorksheet('Data dictionary');
+    assert.equal(dictionary.rowCount, expected.headers.length + 1);
+    assert.equal(dictionary.getCell(2, 3).value, 'ResponseId');
+    assert.equal(dictionary.getCell(2, 4).value, 'Response ID');
     assert.deepEqual(exportStarts(), [`https://iad1.qualtrics.com/API/v3/surveys/${observationId}/export-responses`]);
   });
 
-  test('raw courier download uses the Honduras courier instrument and filename with completed rows only', async () => {
+  test('courier Excel download retains native headers and labels with completed rows only', async () => {
+    const expected = csvFixture(courierId);
     const res = response();
     await downloadCouriers(request(), res);
     assert.equal(res.statusCode, 200);
-    assert.match(res.headers['Content-Disposition'], /filename="ILI_Honduras_courier_survey_\d{4}-\d{2}-\d{2}\.csv"/);
+    assert.match(res.headers['Content-Disposition'], /filename="ILI_Honduras_courier_survey_\d{4}-\d{2}-\d{2}\.xlsx"/);
+    assert.equal(res.headers['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    assert.equal(res.headers['Cache-Control'], 'private, no-store');
+    assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
     assert.equal(res.ended, true);
-    const csv = res.chunks.join('');
-    assert.ok(csv.includes('ObservationID'));
-    assert.ok(csv.includes('R_linked_courier'));
-    assert.ok(csv.includes('R_unlinked_courier'));
-    assert.ok(csv.includes('"Entrega, pequeña"'));
-    assert.ok(!csv.includes('R_unfinished_courier'));
-    assert.ok(!csv.includes('R_missing_completion_courier'));
+    const workbook = await responseWorkbook(res);
+    assert.deepEqual(workbook.worksheets.map(sheet => sheet.name), ['Sheet0', 'Data dictionary']);
+    const sheet = workbook.getWorksheet('Sheet0');
+    assert.deepEqual(sheet.getRow(1).values.slice(1), expected.headers);
+    assert.deepEqual(sheet.getRow(2).values.slice(1), expected.labels);
+    assert.equal(sheet.rowCount, 4, 'ImportId metadata must not appear among response rows');
+    assert.deepEqual([sheet.getCell(3, 1).value, sheet.getCell(4, 1).value], ['R_linked_courier', 'R_unlinked_courier']);
+    assert.equal(sheet.getCell(3, expected.headers.indexOf('ObservationID') + 1).value, 'R_device_gps');
+    assert.equal(sheet.getCell(3, expected.headers.indexOf('QID1') + 1).value, 'Entrega, pequeña');
+    const dictionary = workbook.getWorksheet('Data dictionary');
+    assert.equal(dictionary.rowCount, expected.headers.length + 1);
+    assert.equal(dictionary.getCell(2, 3).value, 'ResponseId');
+    assert.equal(dictionary.getCell(2, 5).value, '_recordId');
     assert.deepEqual(exportStarts(), [`https://iad1.qualtrics.com/API/v3/surveys/${courierId}/export-responses`]);
   });
 
