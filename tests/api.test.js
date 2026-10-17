@@ -125,7 +125,7 @@ function mockQualtricsFetch() {
       assert.equal(options.method, 'POST');
       const body = JSON.parse(options.body);
       assert.ok(['json', 'csv'].includes(body.format), 'Only analytics JSON or native CSV should be requested');
-      assert.deepEqual(body, body.format === 'csv' ? { format: 'csv', compress: false, useLabels: true } : { format: 'json', compress: false });
+      assert.deepEqual(body, body.format === 'csv' ? { format: 'csv', compress: false, useLabels: true, breakoutSets: false } : { format: 'json', compress: false });
       formats.set(surveyId, body.format);
       return jsonResponse({ result: { progressId: 'mock-progress' } });
     }
