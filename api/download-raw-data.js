@@ -1,56 +1,29 @@
+import { exportResponsesCsv, fetchExportFieldTypes } from '../lib/qualtrics.js';
 import { observationSurveyId } from '../lib/config.js';
-import { exportResponses, isFinished, missing } from '../lib/qualtrics.js';
-
-const ADMIN_ORDER = [
-  'StartDate','EndDate','Status','IPAddress','Progress','Duration (in seconds)','Finished','RecordedDate','ResponseId',
-  'RecipientLastName','RecipientFirstName','RecipientEmail','ExternalReference','LocationLatitude','LocationLongitude',
-  'DistributionChannel','UserLanguage','Last Seen Flow Element ID','Last Seen Question IDs'
-];
-
-function naturalCompare(a,b) {
-  return String(a).localeCompare(String(b),undefined,{numeric:true,sensitivity:'base'});
-}
-
-function csvCell(value) {
-  if (value == null) return '';
-  const s = typeof value === 'object' ? JSON.stringify(value) : String(value);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-}
-
+import { surveyWorkbookBuffer, XLSX_CONTENT_TYPE } from '../lib/excel.js';
 export default async function handler(req,res) {
-  if (req.method!=='GET') return res.status(405).json({error:'Method not allowed'});
-
+  if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});
   const token=process.env.QUALTRICS_API_TOKEN;
   const dataCenter=process.env.QUALTRICS_DATA_CENTER||'iad1';
   const surveyId=observationSurveyId();
-  if (!token||!surveyId) return res.status(503).json({error:'Qualtrics environment variables are not configured'});
-
-  try {
-    const rows=(await exportResponses({dataCenter,surveyId,token})).filter(isFinished);
-    const allCols=[...new Set(rows.flatMap(Object.keys))];
-    const admin=ADMIN_ORDER.filter(c=>allCols.includes(c));
-    const rest=allCols.filter(c=>!ADMIN_ORDER.includes(c)).sort(naturalCompare);
-    const cols=[...admin,...rest];
+  if(!token||!surveyId)return res.status(503).json({error:'Qualtrics environment variables are not configured'});
+  try{
+    // Legacy format query strings also receive XLSX; data downloads have one format.
+    const [csv,fieldTypes]=await Promise.all([
+      exportResponsesCsv({dataCenter,surveyId,token}),fetchExportFieldTypes({dataCenter,surveyId,token})
+    ]);
+    const buffer=await surveyWorkbookBuffer(csv,{sheetName:'Sheet0',fieldTypes});
     const date=new Date().toISOString().slice(0,10);
-
     res.statusCode=200;
-    res.setHeader('Content-Type','text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition',`attachment; filename="ILI_Honduras_raw_observations_${date}.csv"`);
+    res.setHeader('Content-Type',XLSX_CONTENT_TYPE);
+    res.setHeader('Content-Disposition','attachment; filename="ILI_Honduras_observations_'+date+'.xlsx"');
     res.setHeader('Cache-Control','private, no-store');
     res.setHeader('X-Content-Type-Options','nosniff');
-    if (typeof res.flushHeaders==='function') res.flushHeaders();
-
-    // UTF-8 BOM helps Excel preserve accents and emoji.
-    res.write('\uFEFF');
-    res.write(cols.map(csvCell).join(',')+'\r\n');
-    for (const row of rows) {
-      res.write(cols.map(c=>csvCell(row[c])).join(',')+'\r\n');
-    }
-    res.end();
-  } catch(e) {
-    console.error(e);
-    if (!res.headersSent) return res.status(502).json({error:'Unable to prepare raw CSV',detail:String(e?.message||e)});
+    res.setHeader('Content-Length',String(buffer.length));
+    res.end(buffer);
+  }catch(error){
+    console.error(error);
+    if(!res.headersSent)return res.status(502).json({error:'Unable to prepare Excel workbook',detail:String(error?.message||error)});
     try{res.end();}catch{}
   }
 }
-

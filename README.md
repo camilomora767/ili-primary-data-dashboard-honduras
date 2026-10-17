@@ -2,7 +2,21 @@
 
 Honduras dashboard for the MIT Center for Transportation & Logistics — Informal Logistics Initiative, adapted from the Mexico dashboard.
 
-Includes field-observation monitoring, observer progress, device-GPS mapping, question summaries, duration distributions, courier ObservationID coverage, and raw CSV/photo ZIP downloads.
+Includes field-observation monitoring, observer progress, device-GPS mapping, question summaries, duration distributions, courier ObservationID coverage, and Excel/photo ZIP downloads.
+
+
+## Excel downloads
+
+Both instruments download only as genuine `.xlsx` workbooks:
+
+- **Sheet0:** native Qualtrics variable names in row 1, full question/field labels in row 2, and completed responses from row 3. Column order, blank columns, duplicate variable names, accents, and comma-separated answers are preserved. Cell line breaks use Excel's LF convention. The first two rows are frozen.
+- **Data dictionary:** column position, Excel letter, variable, full question/field label, ImportId, and Excel type. Position and ImportId distinguish duplicate variable names.
+
+The column structure is read from each Honduras survey's native export at download time. Numeric text-entry fields and upload sizes become Excel numbers only when the active Honduras question metadata identifies them. Codes, identifiers and other text remain literal strings; unavailable metadata falls back to text.
+
+The observation and courier buttons download all completed responses, independent of dashboard filters. Blank and false Finished values remain excluded. The displayed-observer summary also downloads as Excel. The browser verifies the instrument workbook MIME type and ZIP signature before saving; legacy format query strings also return XLSX. Photo ZIP downloads are unchanged.
+
+To activate, merge the reviewed pull request and wait for the existing Vercel integration to deploy the commit. Preserve all directories when copying source manually. No respondent records or credentials are included. Tests reopen workbooks generated from synthetic schemas and responses, including repeated headers, long labels, Spanish text and punctuation.
 
 ## Honduras instruments
 
@@ -42,7 +56,7 @@ Observers use `RecipientEmail`, with `ExternalReference` as an additional filter
 
 Duration is `EndDate − StartDate`, with values over 30 minutes excluded from its median/distribution. Interpret this as delivery dwell time only if the observation workflow spans the delivery. Dates are displayed and filtered as recorded in the Qualtrics export, without timezone conversion; configure the reporting timezone consistently for the Honduras team.
 
-The map source is capped at the last 4,000 filtered records; the table shows the most recent 100 of those. Raw CSV and photo downloads include all completed records, independent of dashboard filters.
+The map source is capped at the last 4,000 filtered records; the table shows the most recent 100 of those. Excel data and photo downloads include all completed records, independent of dashboard filters.
 
 ## Courier linkage
 
@@ -66,4 +80,4 @@ npm test
 npx vercel dev
 ```
 
-The UI uses Chart.js and Leaflet from their CDNs. Vercel hosts the `api/` handlers; `archiver` generates photo ZIP files. Preserve the `api/`, `lib/`, and `assets/` directories.
+The UI uses Chart.js and Leaflet from their CDNs. Vercel hosts the `api/` handlers; `archiver` generates photo ZIP files and `exceljs` generates Excel workbooks. Preserve the `api/`, `lib/`, and `assets/` directories.
