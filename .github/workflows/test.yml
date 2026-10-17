@@ -1,0 +1,14 @@
+name: Test Honduras Excel downloads
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: node --version
+      - run: npm exec --yes --package=pnpm@9 -- pnpm install --frozen-lockfile --ignore-scripts
+      - run: npm test

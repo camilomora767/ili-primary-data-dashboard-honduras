@@ -49,13 +49,14 @@
     <span id="status" class="status demo">Connecting…</span>
     <span id="downloadMsg" class="download-msg">Preparing ZIP…</span>
     <button id="downloadBtn" class="btn download" onclick="downloadImages()" disabled>Download images</button>
-    <button id="rawBtn" class="btn download" onclick="downloadRawData()" disabled>Download raw data</button>
-    <button id="courierRawBtn" class="btn download" onclick="downloadCourierData()" disabled>Download courier data</button>
+    <button id="rawBtn" class="btn download" onclick="downloadRawData()" disabled>Download observations (.xlsx)</button>
+    <button id="courierRawBtn" class="btn download" onclick="downloadCourierData()" disabled>Download courier survey (.xlsx)</button>
     <button class="btn" onclick="loadDashboard(true)">Refresh data</button>
     <button class="btn primary" onclick="loadDashboard(true)">Sync Qualtrics</button>
   </div>
 </header>
 <div class="content" id="overview">
+<p style="font-size:12px;color:var(--muted);margin:0 0 16px">Excel downloads follow Qualtrics: variable names in row 1, question text in row 2, then responses. The second tab is the Data dictionary.</p>
 <div id="configBanner" class="banner">Live data is unavailable. Configure <code>QUALTRICS_API_TOKEN</code>, <code>QUALTRICS_DATA_CENTER</code>, <code>QUALTRICS_SURVEY_ID</code>, and <code>QUALTRICS_COURIER_SURVEY_ID</code> in Vercel to connect both Honduras surveys.</div>
 <section class="kpis">
   <div class="card kpi"><div class="label">Completed observations</div><div class="value" id="kpiN">—</div><div class="sub">Finished responses</div></div>
@@ -67,7 +68,7 @@
 <section class="section card panel courier-panel" id="courier-survey">
   <div class="panel-head">
     <div><h2>Courier survey</h2><div class="eyebrow">Responses from the Honduras courier questionnaire with ObservationID coverage</div></div>
-    <button id="courierPanelDownload" class="btn download" onclick="downloadCourierData()" disabled>Download courier raw data</button>
+    <button id="courierPanelDownload" class="btn download" onclick="downloadCourierData()" disabled>Download courier survey (.xlsx)</button>
   </div>
   <div class="courier-stats">
     <div><span>Completed courier responses</span><strong id="courierN">—</strong></div>
@@ -100,7 +101,7 @@
     <div class="observer-tools">
       <span class="progress-note" id="observerProgressNote"></span>
       <select id="observerLimit" onchange="renderObserverProgress()"><option value="20">Top 20</option><option value="50">Top 50</option><option value="100">Top 100</option></select>
-      <button class="btn download" type="button" onclick="downloadDisplayedObservers()">Download displayed</button>
+      <button class="btn download" type="button" onclick="downloadDisplayedObservers()">Download displayed (.xlsx)</button>
     </div>
   </div>
   <div id="observerChartWrap" class="observer-chart-wrap"><canvas id="observerChart"></canvas></div>
@@ -184,8 +185,8 @@ async function loadCourierSummary(){
     document.getElementById('courierLinked').textContent=s.linkedResponses??'—';
     document.getElementById('courierLinkRate').textContent=s.responses?Number(s.linkRate||0).toFixed(1)+'%':'—';
     note.textContent=`${s.uniqueObservationIds||0} unique ObservationID value${s.uniqueObservationIds===1?'':'s'} provided`;
-    const label=s.responses>0?`Download courier data (${s.responses})`:'Download courier data';
-    for(const id of ['courierRawBtn','courierPanelDownload']){const b=document.getElementById(id);if(b){b.disabled=!(s.responses>0);b.textContent=id==='courierPanelDownload'?(s.responses>0?`Download courier raw data (${s.responses})`:'Download courier raw data'):label}}
+    const label=s.responses>0?`Download courier survey (.xlsx) (${s.responses})`:'Download courier survey (.xlsx)';
+    for(const id of ['courierRawBtn','courierPanelDownload']){const b=document.getElementById(id);if(b){b.disabled=!(s.responses>0);b.textContent=id==='courierPanelDownload'?(s.responses>0?`Download courier survey (.xlsx) (${s.responses})`:'Download courier survey (.xlsx)'):label}}
   }catch(e){
     console.error(e);courierSummary=null;
     document.getElementById('courierN').textContent='—';document.getElementById('courierLinked').textContent='—';document.getElementById('courierLinkRate').textContent='—';
@@ -203,7 +204,7 @@ function renderAll(){
   document.getElementById('kpiObservers').textContent=s.observers??'—';
   document.getElementById('kpiObserversSub').textContent=`${s.identifiedResponses||0} of ${s.responses||0} filtered observations linked to RecipientEmail`;
   const db=document.getElementById('downloadBtn');const totalImages=s.totalImages??s.images??0;db.disabled=!(totalImages>0);db.textContent=totalImages>0?`Download images (${totalImages})`:'Download images';
-  const rb=document.getElementById('rawBtn');const total=s.totalResponses??s.responses??0;rb.disabled=!(total>0);rb.textContent=total>0?`Download raw data (${total})`:'Download raw data';
+  const rb=document.getElementById('rawBtn');const total=s.totalResponses??s.responses??0;rb.disabled=!(total>0);rb.textContent=total>0?`Download observations (.xlsx) (${total})`:'Download observations (.xlsx)';
   if(dashboard.mode!=='live'){
     ['kpiN','kpiGps','kpiObservers'].forEach(id=>document.getElementById(id).textContent='—');
     document.getElementById('kpiObserversSub').textContent='Qualtrics data is not connected';
@@ -293,21 +294,18 @@ function renderRows(){
 function chart(canvas,existing,labels,values,color){if(existing)existing.destroy();return new Chart(document.getElementById(canvas),{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:color,borderRadius:5}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'#edf0f3'},ticks:{precision:0,font:{size:10}}}}}})}
 function renderCharts(){dwellChart=chart('dwellChart',dwellChart,dashboard.dwellBins?.labels||[],dashboard.dwellBins?.values||[],'#5470c6')}
 
-function downloadDisplayedObservers(){
+async function downloadDisplayedObservers(){
   const all=(dashboard.observerCounts||[]).filter(x=>x.identified);
   const limit=Number(document.getElementById('observerLimit')?.value||20);
-  const rows=all.slice(0,limit);
+  const rows=all.slice(0,limit).map(x=>({observer:x.observer,count:x.count}));
   if(!rows.length){alert('There are no identified observers in the current view to download.');return}
-  const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  const lines=[['Rank','RecipientEmail','CompletedObservations'],...rows.map((x,i)=>[i+1,x.observer,x.count])];
-  const csv='\uFEFF'+lines.map(r=>r.map(csvCell).join(',')).join('\r\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  const stamp=new Date().toISOString().slice(0,10);
-  a.href=url;a.download=`ILI_Honduras_observations_by_observer_displayed_${stamp}.csv`;
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  try{
+    const response=await fetch('/api/download-observers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})});
+    if(!response.ok)throw new Error('Unable to prepare the observer workbook');
+    const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='ILI_Honduras_displayed_observers.xlsx';
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }catch(error){alert(String(error.message||error));}
 }
 
 async function downloadImages(){
@@ -322,18 +320,32 @@ async function downloadImages(){
   finally{btn.disabled=!((dashboard.summary?.totalImages??dashboard.summary?.images??0)>0)}
 }
 
-function downloadRawData(){
-  const btn=document.getElementById('rawBtn');
-  btn.disabled=true;
-  const a=document.createElement('a');a.href='/api/download-raw-data?t='+Date.now();a.download='';document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>{btn.disabled=false},1800);
+async function downloadWorkbook(endpoint,buttonIds,fallback){
+  const buttons=buttonIds.map(id=>document.getElementById(id)).filter(Boolean);
+  const previous=buttons.map(button=>button.disabled);
+  buttons.forEach(button=>button.disabled=true);
+  try{
+    const response=await fetch(endpoint+'?t='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw new Error('Unable to prepare the Excel workbook.');
+    const type=response.headers.get('content-type')||'';
+    if(!type.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')){
+      throw new Error('Excel downloads are not available in this deployment yet.');
+    }
+    const blob=await response.blob();
+    const signature=new Uint8Array(await blob.slice(0,2).arrayBuffer());
+    if(signature[0]!==80||signature[1]!==75)throw new Error('The download is not a valid Excel workbook.');
+    const match=(response.headers.get('content-disposition')||'').match(/filename="?([^";]+)"?/i);
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=match?match[1]:fallback;
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }catch(error){alert(String(error.message||error));}
+  finally{buttons.forEach((button,index)=>button.disabled=previous[index]);}
 }
-
-function downloadCourierData(){
-  const buttons=['courierRawBtn','courierPanelDownload'].map(id=>document.getElementById(id)).filter(Boolean);
-  buttons.forEach(b=>b.disabled=true);
-  const a=document.createElement('a');a.href='/api/download-courier-data?t='+Date.now();a.download='';document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>{const n=courierSummary?.summary?.responses||0;buttons.forEach(b=>b.disabled=!(n>0))},1800);
+async function downloadRawData(){
+  await downloadWorkbook('/api/download-raw-data',['rawBtn'],'ILI_Honduras_observations.xlsx');
+}
+async function downloadCourierData(){
+  await downloadWorkbook('/api/download-courier-data',['courierRawBtn','courierPanelDownload'],'ILI_Honduras_courier_survey.xlsx');
 }
 
 loadDashboard();
