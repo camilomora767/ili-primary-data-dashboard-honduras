@@ -489,7 +489,9 @@ test('dashboard uses Honduras branding, Excel-only data downloads, and retains i
   assert.match(html,/signature\[0\]!==80/);
   assert.match(html,/signature\[1\]!==75/);
   assert.match(html,/\/api\/download-observers/);
-  assert.match(html,/\/api\/download-images/);
-  assert.match(html,/\.zip/);
+  assert.match(html,/\/assets\/photo-downloads\.js/);
+  const photoDownloads=readFileSync(new URL('../assets/photo-downloads.js',import.meta.url),'utf8');
+  assert.match(photoDownloads,/\/api\/download-images/);
+  assert.match(photoDownloads,/\.zip/);
   for (const surveyId of Object.values(HONDURAS_SURVEY_IDS)) assert.ok(readme.includes(surveyId));
 });

@@ -1,4 +1,4 @@
-name: Test Honduras Excel downloads
+name: Test Honduras data and photo downloads
 on:
   pull_request:
 permissions:
@@ -12,3 +12,5 @@ jobs:
       - run: node --version
       - run: npm exec --yes --package=pnpm@9 -- pnpm install --frozen-lockfile --ignore-scripts
       - run: npm test
+      - name: Validate 1663-photo ZIP extraction independently
+        run: node --expose-gc tests/photo-scale.mjs

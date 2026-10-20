@@ -1,100 +1,109 @@
-import { observationSurveyId, photoValue } from '../lib/config.js';
-import archiver from 'archiver';
-import { exportResponses, isFinished, missing, safeFilename } from '../lib/qualtrics.js';
+import crypto from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { exportResponses, isFinished } from '../lib/qualtrics.js';
+import { observationSurveyId } from '../lib/config.js';
+import {
+  MAX_ARCHIVE_BYTES, PhotoArchiveError, createPhotoPlan, verifyPhotoPart,
+  splitPhotoPart, buildPhotoArchive
+} from '../lib/photo-archives.js';
 
-function get(r,...keys){
-  for(const k of keys) if(!missing(r[k])) return r[k];
-  return null;
+const CHUNK_BYTES = 64 * 1024;
+const MAX_BODY_BYTES = 128 * 1024;
+
+export async function sendPhotoArchive(buffer, part, res, signal) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 22 ||
+      buffer.length > MAX_ARCHIVE_BYTES ||
+      buffer.readUInt32LE(buffer.length - 22) !== 0x06054b50) {
+    throw new Error('Archive was not finalized');
+  }
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="' + part.filename + '"');
+  res.setHeader('Content-Length', String(buffer.length));
+  res.setHeader('X-Archive-Bytes', String(buffer.length));
+  res.setHeader('X-Archive-SHA256', crypto.createHash('sha256').update(buffer).digest('hex'));
+  res.setHeader('X-Archive-Photos', String(part.photos.length));
+  // Explicit writes keep delivery streamed on Vercel, even though the bounded
+  // archive is fully finalized before any ZIP response headers are sent.
+  async function* chunks() {
+    for (let offset = 0; offset < buffer.length; offset += CHUNK_BYTES) {
+      yield buffer.subarray(offset, Math.min(offset + CHUNK_BYTES, buffer.length));
+    }
+  }
+  await pipeline(Readable.from(chunks(), { objectMode: false, highWaterMark: CHUNK_BYTES }), res, { signal });
 }
 
-function csvEscape(v='') {
-  const s=String(v??'');
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+function requestBody(req) {
+  let body = req.body;
+  if (typeof body === 'string') {
+    if (Buffer.byteLength(body) > MAX_BODY_BYTES) throw new PhotoArchiveError(400, 'INVALID_REQUEST', 'Photo request is too large.');
+    try { body = JSON.parse(body); } catch { throw new PhotoArchiveError(400, 'INVALID_REQUEST', 'Invalid photo request.'); }
+  }
+  if (!body || Array.isArray(body) || typeof body !== 'object' ||
+      Buffer.byteLength(JSON.stringify(body)) > MAX_BODY_BYTES ||
+      !['download', 'split'].includes(body.action) || typeof body.token !== 'string') {
+    throw new PhotoArchiveError(400, 'INVALID_REQUEST', 'Invalid photo request.');
+  }
+  return body;
 }
 
-function manifestCsv(rows) {
-  const headers=['ResponseId','RecipientEmail','ExternalReference','file_id','original_name','saved_path','status','error'];
-  return [headers.join(','),...rows.map(r=>headers.map(h=>csvEscape(r[h])).join(','))].join('\n');
-}
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
 
-export default async function handler(req,res) {
-  if(req.method!=='GET') return res.status(405).json({error:'Method not allowed'});
+  const token = process.env.QUALTRICS_API_TOKEN;
+  const dataCenter = process.env.QUALTRICS_DATA_CENTER || 'iad1';
+  const surveyId = observationSurveyId();
+  if (!token || !surveyId) return res.status(503).json({ error: 'Qualtrics environment variables are not configured' });
 
-  const token=process.env.QUALTRICS_API_TOKEN;
-  const dataCenter=process.env.QUALTRICS_DATA_CENTER||'iad1';
-  const surveyId=observationSurveyId();
-  if(!token||!surveyId) return res.status(503).json({error:'Qualtrics environment variables are not configured'});
-
+  const controller = new AbortController();
+  const onAborted = () => controller.abort(new PhotoArchiveError(499, 'DOWNLOAD_CANCELLED', 'The photo download was cancelled.'));
+  const onClose = () => { if (!res.writableFinished) onAborted(); };
+  req.once?.('aborted', onAborted);
+  if (req.signal?.aborted) onAborted();
+  else req.signal?.addEventListener('abort', onAborted, { once: true });
+  res.once?.('close', onClose);
   try {
-    const rows=(await exportResponses({dataCenter,surveyId,token})).filter(isFinished);
-    const photos=rows.map(r=>({
-      responseId:String(r.ResponseId||''),
-      observer:String(r.RecipientEmail||'').trim()||'No_RecipientEmail',
-      externalReference:String(r.ExternalReference||'').trim(),
-      fileId:String(photoValue(r,'id')||''),
-      fileName:String(photoValue(r,'name')||'image')
-    })).filter(x=>x.responseId&&x.fileId);
-
-    if(!photos.length) return res.status(404).json({error:'No uploaded vehicle images were found in completed responses.'});
-
-    const date=new Date().toISOString().slice(0,10);
-    const zipName=`ILI_Honduras_vehicle_photos_${date}.zip`;
-    res.statusCode=200;
-    res.setHeader('Content-Type','application/zip');
-    res.setHeader('Content-Disposition',`attachment; filename="${zipName}"`);
-    res.setHeader('Cache-Control','private, no-store');
-    res.setHeader('X-Content-Type-Options','nosniff');
-    if(typeof res.flushHeaders==='function') res.flushHeaders();
-
-    const archive=archiver('zip',{zlib:{level:6}});
-    archive.on('warning',err=>console.warn('ZIP warning',err));
-    archive.on('error',err=>{
-      console.error('ZIP error',err);
-      if(!res.headersSent) res.status(500).end('Unable to create ZIP');
-      else res.destroy(err);
-    });
-    archive.pipe(res);
-
-    const manifest=[];
-    for(const p of photos){
-      const original=safeFilename(p.fileName,`${p.fileId}.bin`);
-      const folder=safeFilename(p.observer,'No_RecipientEmail');
-      const savedPath=`${folder}/${safeFilename(p.responseId,'response')}__${original}`;
-      const record={
-        ResponseId:p.responseId,
-        RecipientEmail:p.observer==='No_RecipientEmail'?'':p.observer,
-        ExternalReference:p.externalReference,
-        file_id:p.fileId,
-        original_name:original,
-        saved_path:savedPath,
-        status:'failed',
-        error:''
-      };
-      try{
-        const url=`https://${dataCenter}.qualtrics.com/API/v3/surveys/${encodeURIComponent(surveyId)}/responses/${encodeURIComponent(p.responseId)}/uploaded-files/${encodeURIComponent(p.fileId)}`;
-        const r=await fetch(url,{headers:{'X-API-TOKEN':token,'Accept':'*/*'}});
-        if(!r.ok) throw new Error(`Qualtrics ${r.status}: ${(await r.text()).slice(0,250)}`);
-        const contentType=String(r.headers.get('content-type')||'').toLowerCase();
-        if(contentType.includes('text/html')) throw new Error('Received HTML instead of the uploaded file.');
-        const buf=Buffer.from(await r.arrayBuffer());
-        archive.append(buf,{name:savedPath});
-        record.status='downloaded';
-      }catch(e){
-        record.error=String(e?.message||e);
+    controller.signal.throwIfAborted();
+    if (req.method === 'GET') {
+      if (req.query?.mode !== 'manifest') {
+        return res.status(409).json({ code: 'RELOAD_REQUIRED', error: 'Reload the dashboard to download photos in complete ZIP parts.' });
       }
-      manifest.push(record);
+      const rows = (await exportResponses({ dataCenter, surveyId, token })).filter(isFinished);
+      if (controller.signal.aborted) throw controller.signal.reason;
+      const plan = createPhotoPlan(rows, { secret: token, surveyId });
+      if (!plan.totalPhotos) return res.status(404).json({ error: 'No uploaded vehicle images were found in completed responses.' });
+      return res.status(200).json(plan);
     }
 
-    archive.append(manifestCsv(manifest),{name:'photo_manifest.csv'});
-    const failures=manifest.filter(x=>x.status!=='downloaded');
-    if(failures.length){
-      archive.append(failures.map(x=>`${x.ResponseId}: ${x.error}`).join('\n'),{name:'download_errors.txt'});
+    const body = requestBody(req);
+    const part = verifyPhotoPart(body.token, { secret: token, surveyId });
+    if (body.action === 'split') {
+      return res.status(200).json(splitPhotoPart(part, { secret: token, surveyId }));
     }
-    await archive.finalize();
-  }catch(e){
-    console.error(e);
-    if(!res.headersSent) return res.status(502).json({error:'Unable to prepare image ZIP',detail:String(e?.message||e)});
-    try{res.end();}catch{}
+    const buffer = await buildPhotoArchive(part, {
+      dataCenter, surveyId, token, signal: controller.signal,
+      deadline: Date.now() + 120_000
+    });
+    await sendPhotoArchive(buffer, part, res, controller.signal);
+  } catch (error) {
+    if (res.headersSent || res.destroyed) {
+      // A graceful end here would turn an interrupted transfer into a saved,
+      // corrupt ZIP. Destroy it; the client also verifies size and SHA-256.
+      if (!res.destroyed) res.destroy(error);
+      return;
+    }
+    const known = error instanceof PhotoArchiveError;
+    console.error('Photo archive request failed', { code: known ? error.code : 'ARCHIVE_FAILED' });
+    return res.status(known ? error.status : 502).json({
+      code: known ? (error.code === 'PHOTO_PART_EXPIRED' ? 'EXPIRED_PLAN' : error.code) : 'ARCHIVE_FAILED',
+      error: known ? error.message : 'Unable to prepare this photo ZIP. Retry this part or use smaller ZIPs.'
+    });
+  } finally {
+    req.removeListener?.('aborted', onAborted);
+    req.signal?.removeEventListener('abort', onAborted);
+    res.removeListener?.('close', onClose);
   }
 }
-
