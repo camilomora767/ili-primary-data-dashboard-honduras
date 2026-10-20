@@ -21,6 +21,7 @@
 .courier-panel{padding-bottom:15px}.courier-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.courier-stats>div{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fbfcfd}.courier-stats span{display:block;color:var(--muted);font-size:10px;font-weight:700}.courier-stats strong{display:block;font-size:21px;margin-top:5px}.courier-note{margin-top:9px;font-size:10px;color:var(--muted)}
 @media(max-width:1120px){.shell{grid-template-columns:1fr}.side{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.split,.triple{grid-template-columns:1fr}.question-grid{grid-template-columns:repeat(2,1fr)}.filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.top{position:static}}
 @media(max-width:680px){.courier-stats{grid-template-columns:1fr}#map{height:440px}.content{padding:18px}.top{padding:12px 18px;align-items:flex-start}.kpis{grid-template-columns:1fr 1fr}.question-grid{grid-template-columns:1fr}.filter-grid{grid-template-columns:1fr}.filter-summary{margin-left:0;width:100%}.actions .status{display:none}.qrow{grid-template-columns:125px 1fr 70px}.mini b{width:90px}}
+.photo-downloads[hidden]{display:none}.photo-note{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 13px}.photo-actions,.photo-row-actions{display:flex;gap:8px;flex-wrap:wrap}.photo-message{font-size:12px;line-height:1.5;margin:13px 0}.photo-error{color:#a12b2b}.photo-parts{padding:0;margin:0;list-style:none;max-height:470px;overflow:auto}.photo-part{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:13px 0;border-top:1px solid var(--line)}.photo-info{min-width:0}.photo-info strong{display:block;font-size:12px;overflow-wrap:anywhere}.photo-detail{font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px;overflow-wrap:anywhere}.photo-part[data-status="error"] .photo-detail{color:#a12b2b}.photo-part[data-status="completed"] .photo-detail{color:#11755a}.photo-part progress{display:block;width:min(100%,420px);height:10px;margin-top:7px;accent-color:var(--teal)}.photo-part progress[hidden]{display:none}@media(max-width:680px){.photo-part{grid-template-columns:1fr;gap:9px}.photo-row-actions .btn{flex:1}}
 </style>
 </head>
 <body>
@@ -57,6 +58,7 @@
 </header>
 <div class="content" id="overview">
 <p style="font-size:12px;color:var(--muted);margin:0 0 16px">Excel downloads follow Qualtrics: variable names in row 1, question text in row 2, then responses. The second tab is the Data dictionary.</p>
+<section class="section card panel photo-downloads" id="photoDownloads" role="region" aria-labelledby="photoDownloadsTitle" hidden><h2 id="photoDownloadsTitle">Download vehicle photos</h2><p class="photo-note">Preparing photo downloads…</p></section>
 <div id="configBanner" class="banner">Live data is unavailable. Configure <code>QUALTRICS_API_TOKEN</code>, <code>QUALTRICS_DATA_CENTER</code>, <code>QUALTRICS_SURVEY_ID</code>, and <code>QUALTRICS_COURIER_SURVEY_ID</code> in Vercel to connect both Honduras surveys.</div>
 <section class="kpis">
   <div class="card kpi"><div class="label">Completed observations</div><div class="value" id="kpiN">—</div><div class="sub">Finished responses</div></div>
@@ -308,16 +310,18 @@ async function downloadDisplayedObservers(){
   }catch(error){alert(String(error.message||error));}
 }
 
+let photoDownloadsUiPromise;
 async function downloadImages(){
-  const btn=document.getElementById('downloadBtn'),msg=document.getElementById('downloadMsg');
-  btn.disabled=true;msg.classList.add('show');msg.textContent='Preparing ZIP…';
+  const panel=document.getElementById('photoDownloads');
+  panel.hidden=false;panel.scrollIntoView({behavior:'smooth',block:'start'});
   try{
-    const r=await fetch('/api/download-images',{cache:'no-store'});
-    if(!r.ok){let text=await r.text();throw new Error(text||`Download failed (${r.status})`)}
-    const blob=await r.blob();const cd=r.headers.get('content-disposition')||'';const m=cd.match(/filename="?([^";]+)"?/i);const filename=m?m[1]:'ILI_Honduras_vehicle_photos.zip';
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);msg.textContent='ZIP ready';setTimeout(()=>msg.classList.remove('show'),2500);
-  }catch(e){console.error(e);msg.textContent='Download failed';alert('Unable to download images. '+String(e.message||e));setTimeout(()=>msg.classList.remove('show'),3500)}
-  finally{btn.disabled=!((dashboard.summary?.totalImages??dashboard.summary?.images??0)>0)}
+    if(!photoDownloadsUiPromise)photoDownloadsUiPromise=import('/assets/photo-downloads.js').then(({mountPhotoDownloads})=>mountPhotoDownloads(panel));
+    const ui=await photoDownloadsUiPromise;
+    await ui.open();
+  }catch(error){
+    console.error(error);photoDownloadsUiPromise=null;
+    panel.textContent='Photo downloads could not load. Refresh this page and try again.';
+  }
 }
 
 async function downloadWorkbook(endpoint,buttonIds,fallback){

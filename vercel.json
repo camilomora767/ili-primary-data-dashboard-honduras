@@ -14,6 +14,11 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/download-images.js": {
+      "maxDuration": 300,
+      "supportsCancellation": true
+    }
+  }
 }
-

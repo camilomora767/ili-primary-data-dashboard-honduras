@@ -14,9 +14,25 @@ Both instruments download only as genuine `.xlsx` workbooks:
 
 The column structure is read from each Honduras survey's native export at download time. Numeric text-entry fields and upload sizes become Excel numbers only when the active Honduras question metadata identifies them. Codes, identifiers and other text remain literal strings; unavailable metadata falls back to text.
 
-The observation and courier buttons download all completed responses, independent of dashboard filters. Blank and false Finished values remain excluded. The displayed-observer summary also downloads as Excel. The browser verifies the instrument workbook MIME type and ZIP signature before saving; legacy format query strings also return XLSX. Photo ZIP downloads are unchanged.
+The observation and courier buttons download all completed responses, independent of dashboard filters. Blank and false Finished values remain excluded. The displayed-observer summary also downloads as Excel. The browser verifies the instrument workbook MIME type and ZIP signature before saving; legacy format query strings also return XLSX. Photo downloads use verified, bounded ZIP parts as described below.
 
 To activate, merge the reviewed pull request and wait for the existing Vercel integration to deploy the commit. Preserve all directories when copying source manually. No respondent records or credentials are included. Tests reopen workbooks generated from synthetic schemas and responses, including repeated headers, long labels, Spanish text and punctuation.
+
+## Vehicle-photo ZIP downloads
+
+Click **Download images** to prepare the photo list, then **Download all parts** or an individual part. Each ZIP contains at most 50 photos and is capped at 64 MiB. Parts that exceed the size or preparation-time budget are split automatically; **Make smaller ZIPs** is also available.
+
+Extract every part into the same destination folder. These are complete ZIP archives, not pieces that need to be joined. Each includes a uniquely named `photo_manifest_part-ID.csv` with the response ID, original filename, and saved path. Short, Windows-safe paths avoid filename and extraction-path problems.
+
+The page verifies the byte count, SHA-256 checksum, closing ZIP record, directory and expected entry count before offering a file to save. A missing or interrupted photo fails that part before ZIP headers are sent. Completed parts are finalized before delivery and streamed with backpressure; JPEGs are stored without recompression. A failed transfer is rejected, rather than saved as a corrupt ZIP.
+
+Use **Retry** for one part. **Stop** cancels the current transfer; **Resume remaining parts** skips completed parts while the page stays open. The browser may ask to allow multiple downloads. Individual download buttons remain available, including **Download again**. The photo snapshot expires after four hours; **Refresh list** prepares a new snapshot and resets progress.
+
+After deploying this change, reload the dashboard before downloading images. Existing incomplete ZIPs should be downloaded again using the new parts. No new credentials or storage services are required; the existing public access and Honduras survey configuration remain in effect.
+
+### Photo-download validation
+
+`npm test` checks archives, browser integrity checks, cancellation, retry/splitting, public access, and Excel regressions with synthetic data. Run `node tests/photo-scale.mjs` for the independent Python extraction check: 1,663 synthetic 640-KiB photos (over 1 GiB) across bounded archives. Python 3 must be available as `python3` (or `python` on Windows); set `PHOTO_ZIP_PYTHON` to an executable path if needed. Generated ZIPs are validated then removed; local reports are excluded from Git.
 
 ## Honduras instruments
 

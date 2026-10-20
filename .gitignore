@@ -4,3 +4,7 @@ node_modules/
 .env.*
 !.env.example
 *.zip
+.pnpm-store/
+.zip-scale-output/
+verified-live-download/
+.test-dependencies.mjs

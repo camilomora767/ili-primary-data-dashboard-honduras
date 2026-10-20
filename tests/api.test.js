@@ -302,7 +302,7 @@ describe('Honduras API integration with synthetic Qualtrics exports', { concurre
       assert.equal(res.statusCode, 200);
     }
     const imageResponse = response();
-    await downloadImages(request(), imageResponse);
+    await downloadImages(request({mode:'manifest'}), imageResponse);
     assert.equal(imageResponse.statusCode, 404);
     assert.deepEqual(imageResponse.body, { error: 'No uploaded vehicle images were found in completed responses.' });
     assert.equal(exportStarts().length, 5);
@@ -319,7 +319,7 @@ describe('Honduras API integration with synthetic Qualtrics exports', { concurre
   test('all handlers reject unsupported methods before contacting Qualtrics', async () => {
     for (const handler of [observations, courierSummary, downloadObservations, downloadCouriers, downloadImages, session]) {
       const res = response();
-      await handler({ method: 'POST', headers: {}, query: {} }, res);
+      await handler({ method: 'DELETE', headers: {}, query: {} }, res);
       assert.equal(res.statusCode, 405);
       assert.deepEqual(res.body, { error: 'Method not allowed' });
     }
